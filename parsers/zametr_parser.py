@@ -278,13 +278,13 @@ def compute_street_analytics(offers: list[dict]) -> dict:
     if price_changes:
         avg_change = sum(price_changes) / len(price_changes)
         if avg_change > 2:
-            trend = "📈 Растёт"
+            trend = "up"
         elif avg_change < -2:
-            trend = "📉 Падает"
+            trend = "down"
         else:
-            trend = "➡️ Стабильно"
+            trend = "stable"
     else:
-        trend = "➡️ Стабильно"
+        trend = "stable"
         avg_change = 0
 
     return {
@@ -299,15 +299,17 @@ def compute_street_analytics(offers: list[dict]) -> dict:
     }
 
 
-def format_offer(offer: dict, is_realtor: bool = False) -> str:
+def format_offer(offer: dict, lang: str = "ru", is_realtor: bool = False) -> str:
     """
     Форматировать одно объявление в читаемый текст для Telegram.
     """
+    from locales import t
+
     location = offer.get("location") or {}
     discount = offer.get("discount") or {}
     history = offer.get("historyPrices") or []
 
-    city = location.get("city") or "—"
+    city = location.get("city") or t("empty", lang)
     district = location.get("district") or ""
     street = location.get("street") or ""
     area = offer.get("area") or 0
@@ -323,62 +325,61 @@ def format_offer(offer: dict, is_realtor: bool = False) -> str:
     delta_pct = discount.get("priceDeltaPercentageFromStart")
 
     offer_id = offer.get("offerId", "")
-    path = offer.get("path", "")
     link = f"https://zametr.pl/oferta/{offer_id}"
 
-    # Адрес
     address_parts = [p for p in [city, district, street] if p]
     address = ", ".join(address_parts)
-
-    status = "📦 Архив (продано/снято)" if is_archived else "🔄 Активное объявление"
+    status = t("offer_status_archived", lang) if is_archived else t("offer_status_active", lang)
 
     lines = [
-        f"🏠 <b>{address or '—'}</b>",
+        f"🏠 <b>{address or t('empty', lang)}</b>",
         f"📍 {city}" + (f", {district}" if district else "") + (f", {street}" if street else ""),
     ]
 
     if current_price:
-        lines.append(f"💰 Цена: <b>{current_price:,} PLN</b>" + (f" ({round(price_per_area):,} PLN/m²)" if price_per_area else ""))
+        lines.append(
+            f"{t('offer_price', lang)}: <b>{current_price:,} PLN</b>"
+            + (f" ({round(price_per_area):,} PLN/m²)" if price_per_area else "")
+        )
         if old_price and old_price != current_price:
-            lines.append(f"   ↘️ Старая цена: {old_price:,} PLN")
+            lines.append(f"   {t('offer_old_price', lang)}: {old_price:,} PLN")
 
     if area:
-        lines.append(f"📐 Площадь: {area} m²")
+        lines.append(f"{t('offer_area', lang)}: {area} m²")
     if rooms:
-        lines.append(f"🛏 Комнат: {rooms}")
+        lines.append(f"{t('offer_rooms', lang)}: {rooms}")
     if year_built:
-        lines.append(f"🏗 Год постройки: {year_built}")
+        lines.append(f"{t('offer_year', lang)}: {year_built}")
     if floor is not None and floor_total:
-        lines.append(f"🏢 Этаж: {floor} из {floor_total}")
+        lines.append(f"{t('offer_floor', lang)}: {floor} {t('offer_of', lang)} {floor_total}")
 
-    lines.append(f"📅 Статус: {status}")
+    lines.append(f"{t('offer_status', lang)}: {status}")
 
-    # Динамика цен
     if delta_pct is not None or history:
-        lines.append("📈 <b>Динамика цен:</b>")
+        lines.append(t("offer_price_history", lang))
         if current_price:
-            lines.append(f"   • Текущая цена: {current_price:,} PLN")
+            lines.append(f"   • {t('offer_current_price', lang)}: {current_price:,} PLN")
         if delta_pct is not None:
             sign = "+" if delta_pct > 0 else ""
-            lines.append(f"   • Изменение с публикации: {sign}{delta_pct}%")
+            lines.append(f"   • {t('offer_change_from_start', lang)}: {sign}{delta_pct}%")
         if history:
-            first = history[-1]  # самый старый
+            first = history[-1]
             first_price = first.get("oldPrice") or first.get("price")
             if first_price:
-                lines.append(f"   • Стартовая цена: {first_price:,} PLN")
+                lines.append(f"   • {t('offer_start_price', lang)}: {first_price:,} PLN")
 
-    lines.append(f"🔗 <a href='{link}'>Подробнее на zametr.pl</a>")
+    lines.append(f"🔗 <a href='{link}'>{t('offer_link', lang)}</a>")
 
     if is_realtor:
-        lines.append("\n📋 <b>Аналитика для риэлтора:</b>")
-        construction_type = offer.get("constructionType") or "—"
-        market = offer.get("market") or "—"
-        lines.append(f"   • Тип рынка: {market}")
-        lines.append(f"   • Тип строения: {construction_type}")
+        lines.append(f"\n{t('offer_realtor_section', lang)}")
+        construction_type = offer.get("constructionType") or t("empty", lang)
+        market = offer.get("market") or t("empty", lang)
+        lines.append(f"   • {t('offer_market_type', lang)}: {market}")
+        lines.append(f"   • {t('offer_construction', lang)}: {construction_type}")
         if offer.get("isHot"):
-            lines.append("   • 🔥 Горячая цена (несколько снижений подряд)")
+            lines.append(f"   • {t('offer_hot', lang)}")
         discount_combo = offer.get("discountCombo", 0)
         if discount_combo:
-            lines.append(f"   • Снижений цены: {discount_combo}")
+            lines.append(f"   • {t('offer_price_drops', lang)}: {discount_combo}")
 
     return "\n".join(lines)

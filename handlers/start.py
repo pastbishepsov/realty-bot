@@ -1,22 +1,24 @@
 """
-Хендлер /start и онбординг.
+Хендлер /start, онбординг, профиль, выбор языка.
 """
 
 import logging
 
 from aiogram import Router, F
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from database.db import upsert_user, get_user, set_user_role, set_user_agency
+from database.db import upsert_user, get_user, set_user_role, set_user_agency, set_user_language
 from keyboards.inline import (
     main_menu_keyboard,
     role_keyboard,
     skip_keyboard,
     back_to_menu_keyboard,
 )
+from locales import t
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -27,44 +29,117 @@ class OnboardingStates(StatesGroup):
     waiting_for_contact = State()
 
 
-WELCOME_TEXT = (
-    "👋 Добро пожаловать в <b>Realt Help</b>!\n\n"
-    "Я помогаю искать и анализировать недвижимость в Польше "
-    "по данным с <a href='https://zametr.pl'>zametr.pl</a>.\n\n"
-    "Кто вы?"
-)
+def language_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🇷🇺 Русский", callback_data="setlang:ru")
+    builder.button(text="🇬🇧 English", callback_data="setlang:en")
+    builder.button(text="🇵🇱 Polski",  callback_data="setlang:pl")
+    builder.adjust(1)
+    return builder.as_markup()
 
+
+def _lang(user: dict | None) -> str:
+    return (user or {}).get("language") or "ru"
+
+
+# ─── /start ───────────────────────────────────────────────────────────────────
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext) -> None:
     await state.clear()
-    user = message.from_user
+    user_tg = message.from_user
+    existing = await get_user(user_tg.id)
 
-    # Создаём пользователя если нет
-    existing = await get_user(user.id)
     if not existing:
         await upsert_user(
-            user_id=user.id,
-            username=user.username,
-            full_name=user.full_name,
+            user_id=user_tg.id,
+            username=user_tg.username,
+            full_name=user_tg.full_name,
         )
 
-    await message.answer(
-        WELCOME_TEXT,
-        reply_markup=role_keyboard(),
+    # Если язык уже выбран — сразу к приветствию
+    if existing and existing.get("language"):
+        lang = existing["language"]
+        await message.answer(
+            t("welcome", lang),
+            reply_markup=role_keyboard(lang),
+            parse_mode="HTML",
+            disable_web_page_preview=True,
+        )
+    else:
+        # Первый запуск — выбор языка (на трёх языках сразу)
+        await message.answer(
+            t("language_select", "ru"),
+            reply_markup=language_keyboard(),
+        )
+
+
+# ─── Выбор языка при онбординге ───────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("setlang:"))
+async def cb_set_language(callback: CallbackQuery, state: FSMContext) -> None:
+    lang = callback.data.split(":")[1]
+    user_id = callback.from_user.id
+
+    await set_user_language(user_id, lang)
+    await callback.answer(t("language_set", lang))
+
+    user = await get_user(user_id)
+    fsm_state = await state.get_state()
+
+    # Если мы в главном меню (смена языка через /language) — показать меню
+    if fsm_state is None and user and user.get("role"):
+        is_realtor = user.get("role") == "realtor"
+        await callback.message.edit_text(
+            t("main_menu", lang),
+            reply_markup=main_menu_keyboard(lang, is_realtor),
+        )
+        return
+
+    # Иначе — продолжить онбординг: выбор роли
+    await callback.message.edit_text(
+        t("welcome", lang),
+        reply_markup=role_keyboard(lang),
         parse_mode="HTML",
-        disable_web_page_preview=True,
     )
 
 
+# ─── /language — смена языка ──────────────────────────────────────────────────
+
+@router.message(Command("language"))
+async def cmd_language(message: Message) -> None:
+    user = await get_user(message.from_user.id)
+    lang = _lang(user)
+    await message.answer(
+        t("lang_current", lang),
+        reply_markup=language_keyboard(),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data == "action:language")
+async def cb_language_menu(callback: CallbackQuery) -> None:
+    user = await get_user(callback.from_user.id)
+    lang = _lang(user)
+    await callback.message.edit_text(
+        t("lang_current", lang),
+        reply_markup=language_keyboard(),
+        parse_mode="HTML",
+    )
+    await callback.answer()
+
+
+# ─── Выбор роли ───────────────────────────────────────────────────────────────
+
 @router.callback_query(F.data == "role:realtor")
 async def cb_role_realtor(callback: CallbackQuery, state: FSMContext) -> None:
+    user = await get_user(callback.from_user.id)
+    lang = _lang(user)
     await set_user_role(callback.from_user.id, "realtor")
     await state.set_state(OnboardingStates.waiting_for_agency_name)
     await callback.message.edit_text(
-        "🏢 Отлично! Вы выбрали режим <b>Риэлтор/Агент</b>.\n\n"
-        "Введите название вашего агентства (или нажмите «Пропустить»):",
-        reply_markup=skip_keyboard("skip_agency"),
+        t("role_chosen_realtor", lang),
+        reply_markup=skip_keyboard("skip_agency", lang),
         parse_mode="HTML",
     )
     await callback.answer()
@@ -72,31 +147,39 @@ async def cb_role_realtor(callback: CallbackQuery, state: FSMContext) -> None:
 
 @router.callback_query(F.data == "role:user")
 async def cb_role_user(callback: CallbackQuery, state: FSMContext) -> None:
+    user = await get_user(callback.from_user.id)
+    lang = _lang(user)
     await set_user_role(callback.from_user.id, "user")
     await state.clear()
     await callback.message.edit_text(
-        "✅ Профиль создан!\n\nЧем займёмся?",
-        reply_markup=main_menu_keyboard(is_realtor=False),
+        t("profile_created_simple", lang),
+        reply_markup=main_menu_keyboard(lang, is_realtor=False),
     )
     await callback.answer()
 
 
+# ─── Агентство и контакт ──────────────────────────────────────────────────────
+
 @router.message(OnboardingStates.waiting_for_agency_name)
 async def process_agency_name(message: Message, state: FSMContext) -> None:
+    user = await get_user(message.from_user.id)
+    lang = _lang(user)
     await state.update_data(agency_name=message.text.strip())
     await state.set_state(OnboardingStates.waiting_for_contact)
     await message.answer(
-        "📞 Введите контактный номер телефона или e-mail (или нажмите «Пропустить»):",
-        reply_markup=skip_keyboard("skip_contact"),
+        t("enter_contact", lang),
+        reply_markup=skip_keyboard("skip_contact", lang),
     )
 
 
 @router.callback_query(F.data == "action:skip_agency")
 async def cb_skip_agency(callback: CallbackQuery, state: FSMContext) -> None:
+    user = await get_user(callback.from_user.id)
+    lang = _lang(user)
     await state.set_state(OnboardingStates.waiting_for_contact)
     await callback.message.edit_text(
-        "📞 Введите контактный номер телефона или e-mail (или нажмите «Пропустить»):",
-        reply_markup=skip_keyboard("skip_contact"),
+        t("enter_contact", lang),
+        reply_markup=skip_keyboard("skip_contact", lang),
     )
     await callback.answer()
 
@@ -106,13 +189,13 @@ async def process_contact(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     agency_name = data.get("agency_name")
     contact = message.text.strip()
-
     await set_user_agency(message.from_user.id, agency_name or "", contact)
     await state.clear()
-
+    user = await get_user(message.from_user.id)
+    lang = _lang(user)
     await message.answer(
-        "✅ Профиль создан! Готов к работе.\n\nЧем займёмся?",
-        reply_markup=main_menu_keyboard(is_realtor=True),
+        t("profile_created", lang),
+        reply_markup=main_menu_keyboard(lang, is_realtor=True),
     )
 
 
@@ -122,50 +205,57 @@ async def cb_skip_contact(callback: CallbackQuery, state: FSMContext) -> None:
     agency_name = data.get("agency_name")
     await set_user_agency(callback.from_user.id, agency_name or "", None)
     await state.clear()
-
+    user = await get_user(callback.from_user.id)
+    lang = _lang(user)
     await callback.message.edit_text(
-        "✅ Профиль создан! Готов к работе.\n\nЧем займёмся?",
-        reply_markup=main_menu_keyboard(is_realtor=True),
+        t("profile_created", lang),
+        reply_markup=main_menu_keyboard(lang, is_realtor=True),
     )
     await callback.answer()
 
+
+# ─── Главное меню ─────────────────────────────────────────────────────────────
 
 @router.callback_query(F.data == "action:menu")
 async def cb_main_menu(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
     user = await get_user(callback.from_user.id)
+    lang = _lang(user)
     is_realtor = user and user.get("role") == "realtor"
-
     await callback.message.edit_text(
-        "🏠 Главное меню\n\nЧем займёмся?",
-        reply_markup=main_menu_keyboard(is_realtor=is_realtor),
+        t("main_menu", lang),
+        reply_markup=main_menu_keyboard(lang, is_realtor=is_realtor),
     )
     await callback.answer()
 
+
+# ─── Профиль ──────────────────────────────────────────────────────────────────
 
 @router.callback_query(F.data == "action:profile")
 async def cb_profile(callback: CallbackQuery) -> None:
     user = await get_user(callback.from_user.id)
     if not user:
-        await callback.answer("Профиль не найден", show_alert=True)
+        await callback.answer(t("profile_not_found", "ru"), show_alert=True)
         return
 
-    role_label = "Риэлтор/Агент" if user.get("role") == "realtor" else "Частное лицо"
-    city = user.get("default_city") or "не выбран"
-    agency = user.get("agency_name") or "—"
-    contact = user.get("contact") or "—"
+    lang = _lang(user)
+    role_label = t("role_label_realtor", lang) if user.get("role") == "realtor" else t("role_label_user", lang)
+    city = user.get("default_city") or t("not_set", lang)
+    agency = user.get("agency_name") or t("empty", lang)
+    contact = user.get("contact") or t("empty", lang)
+    lang_label = {"ru": "🇷🇺 Русский", "en": "🇬🇧 English", "pl": "🇵🇱 Polski"}.get(lang, lang)
 
     text = (
-        f"👤 <b>Ваш профиль</b>\n\n"
-        f"Роль: {role_label}\n"
-        f"Агентство: {agency}\n"
-        f"Контакт: {contact}\n"
-        f"Город по умолчанию: {city}\n"
+        f"{t('profile_title', lang)}\n\n"
+        f"{t('profile_role', lang)}: {role_label}\n"
+        f"{t('profile_agency', lang)}: {agency}\n"
+        f"{t('profile_contact', lang)}: {contact}\n"
+        f"{t('profile_city', lang)}: {city}\n"
+        f"{t('profile_language', lang)}: {lang_label}\n"
     )
-
     await callback.message.edit_text(
         text,
-        reply_markup=back_to_menu_keyboard(),
+        reply_markup=back_to_menu_keyboard(lang),
         parse_mode="HTML",
     )
     await callback.answer()

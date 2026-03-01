@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     agency_name TEXT,
     contact     TEXT,
     default_city TEXT,
+    language    TEXT DEFAULT 'ru',
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )

@@ -19,6 +19,11 @@ async def init_db() -> None:
         db.row_factory = aiosqlite.Row
         for ddl in ALL_TABLES:
             await db.execute(ddl)
+        # Миграция: добавить колонку language если её нет
+        try:
+            await db.execute("ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'ru'")
+        except Exception:
+            pass  # Колонка уже существует
         await db.commit()
     logger.info("Database initialized at %s", _db_path)
 
@@ -77,6 +82,15 @@ async def set_user_role(user_id: int, role: str) -> None:
         await db.execute(
             "UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?",
             (role, user_id),
+        )
+        await db.commit()
+
+
+async def set_user_language(user_id: int, language: str) -> None:
+    async with aiosqlite.connect(_db_path) as db:
+        await db.execute(
+            "UPDATE users SET language = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?",
+            (language, user_id),
         )
         await db.commit()
 
