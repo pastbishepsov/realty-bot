@@ -28,7 +28,7 @@ class OnboardingStates(StatesGroup):
 
 
 WELCOME_TEXT = (
-    "👋 Добро пожаловать в <b>ZametrBot</b>!\n\n"
+    "👋 Добро пожаловать в <b>Realt Help</b>!\n\n"
     "Я помогаю искать и анализировать недвижимость в Польше "
     "по данным с <a href='https://zametr.pl'>zametr.pl</a>.\n\n"
     "Кто вы?"
