@@ -38,6 +38,7 @@ STRINGS = {
     "btn_main_menu": "🏠 Главное меню",
     "btn_cancel": "❌ Отмена",
     "btn_street_analytics": "📊 Аналитика улицы",
+    "btn_change_role": "🔄 Изменить роль",
 
     # ── Профиль ───────────────────────────────────────────────────
     "profile_not_found": "Профиль не найден",
@@ -72,14 +73,14 @@ STRINGS = {
     "results_error": "❌ Не удалось получить данные:\n\n{error}\n\nПопробуйте позже или выберите другой город.",
     "results_not_found": (
         "🔍 <b>Результаты поиска</b>\n\n"
-        "🏙 {city}, ул. {street}{building}\n\n"
+        "🏙 {city}, {street}{building}\n\n"
         "😕 Объявлений не найдено.\n\n"
         "Попробуйте:\n"
         "• Проверить написание улицы\n"
         "• Убрать номер дома\n"
         "• Выбрать другой город"
     ),
-    "results_header": "🔍 <b>Результаты поиска</b>\n🏙 {city}, ул. {street}{building}\n📊 Найдено: {total} объявлений (стр. {page}/{total_pages})",
+    "results_header": "🔍 <b>Результаты поиска</b>\n🏙 {city}, {street}{building}\n📊 Найдено: {total} объявлений (стр. {page}/{total_pages})",
     "results_loading_analytics": "Загружаю аналитику…",
     "results_analytics_error": "❌ Ошибка загрузки данных: {error}",
     "results_analytics_no_data": "📊 Недостаточно данных для аналитики.",

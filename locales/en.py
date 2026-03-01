@@ -38,6 +38,7 @@ STRINGS = {
     "btn_main_menu": "🏠 Main menu",
     "btn_cancel": "❌ Cancel",
     "btn_street_analytics": "📊 Street analytics",
+    "btn_change_role": "🔄 Change role",
 
     # ── Profile ───────────────────────────────────────────────────
     "profile_not_found": "Profile not found",

@@ -120,6 +120,14 @@ def back_to_menu_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
+def profile_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(text=t("btn_change_role", lang), callback_data="action:change_role")
+    builder.button(text=t("btn_main_menu", lang), callback_data="action:menu")
+    builder.adjust(1)
+    return builder.as_markup()
+
+
 def cancel_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text=t("btn_cancel", lang), callback_data="action:menu")

@@ -88,6 +88,11 @@ async def set_user_role(user_id: int, role: str) -> None:
 
 async def set_user_language(user_id: int, language: str) -> None:
     async with aiosqlite.connect(_db_path) as db:
+        # Гарантируем наличие строки (на случай гонки или первого запуска)
+        await db.execute(
+            "INSERT OR IGNORE INTO users (user_id, language, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
+            (user_id, language),
+        )
         await db.execute(
             "UPDATE users SET language = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?",
             (language, user_id),

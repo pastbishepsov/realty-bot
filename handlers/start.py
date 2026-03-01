@@ -51,26 +51,30 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     existing = await get_user(user_tg.id)
 
     if not existing:
+        # Новый пользователь — создать запись, показать выбор языка
         await upsert_user(
             user_id=user_tg.id,
             username=user_tg.username,
             full_name=user_tg.full_name,
         )
-
-    # Если язык уже выбран — сразу к приветствию
-    if existing and existing.get("language"):
-        lang = existing["language"]
-        await message.answer(
-            t("welcome", lang),
-            reply_markup=role_keyboard(lang),
-            parse_mode="HTML",
-            disable_web_page_preview=True,
-        )
-    else:
-        # Первый запуск — выбор языка (на трёх языках сразу)
         await message.answer(
             t("language_select", "ru"),
             reply_markup=language_keyboard(),
+        )
+    elif existing.get("role"):
+        # Уже зарегистрированный пользователь — сразу в главное меню
+        lang = _lang(existing)
+        is_realtor = existing.get("role") == "realtor"
+        await message.answer(
+            t("main_menu", lang),
+            reply_markup=main_menu_keyboard(lang, is_realtor=is_realtor),
+        )
+    else:
+        # Есть в БД, но роль не выбрана — главное меню (роль опциональна)
+        lang = _lang(existing)
+        await message.answer(
+            t("main_menu", lang),
+            reply_markup=main_menu_keyboard(lang, is_realtor=False),
         )
 
 
@@ -85,22 +89,12 @@ async def cb_set_language(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer(t("language_set", lang))
 
     user = await get_user(user_id)
-    fsm_state = await state.get_state()
+    is_realtor = user and user.get("role") == "realtor"
 
-    # Если мы в главном меню (смена языка через /language) — показать меню
-    if fsm_state is None and user and user.get("role"):
-        is_realtor = user.get("role") == "realtor"
-        await callback.message.edit_text(
-            t("main_menu", lang),
-            reply_markup=main_menu_keyboard(lang, is_realtor),
-        )
-        return
-
-    # Иначе — продолжить онбординг: выбор роли
+    # После выбора языка всегда показываем главное меню (роль опциональна)
     await callback.message.edit_text(
-        t("welcome", lang),
-        reply_markup=role_keyboard(lang),
-        parse_mode="HTML",
+        t("main_menu", lang),
+        reply_markup=main_menu_keyboard(lang, is_realtor=bool(is_realtor)),
     )
 
 
@@ -253,9 +247,23 @@ async def cb_profile(callback: CallbackQuery) -> None:
         f"{t('profile_city', lang)}: {city}\n"
         f"{t('profile_language', lang)}: {lang_label}\n"
     )
+
+    from keyboards.inline import profile_keyboard
     await callback.message.edit_text(
         text,
-        reply_markup=back_to_menu_keyboard(lang),
+        reply_markup=profile_keyboard(lang),
+        parse_mode="HTML",
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "action:change_role")
+async def cb_change_role(callback: CallbackQuery, state: FSMContext) -> None:
+    user = await get_user(callback.from_user.id)
+    lang = _lang(user)
+    await callback.message.edit_text(
+        t("welcome", lang),
+        reply_markup=role_keyboard(lang),
         parse_mode="HTML",
     )
     await callback.answer()

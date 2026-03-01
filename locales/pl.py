@@ -38,6 +38,7 @@ STRINGS = {
     "btn_main_menu": "🏠 Menu główne",
     "btn_cancel": "❌ Anuluj",
     "btn_street_analytics": "📊 Analityka ulicy",
+    "btn_change_role": "🔄 Zmień rolę",
 
     # ── Profil ────────────────────────────────────────────────────
     "profile_not_found": "Profil nie znaleziony",
@@ -72,14 +73,14 @@ STRINGS = {
     "results_error": "❌ Nie udało się pobrać danych:\n\n{error}\n\nSpróbuj później lub wybierz inne miasto.",
     "results_not_found": (
         "🔍 <b>Wyniki wyszukiwania</b>\n\n"
-        "🏙 {city}, ul. {street}{building}\n\n"
+        "🏙 {city}, {street}{building}\n\n"
         "😕 Nie znaleziono ogłoszeń.\n\n"
         "Spróbuj:\n"
         "• Sprawdzić pisownię ulicy\n"
         "• Usunąć numer budynku\n"
         "• Wybrać inne miasto"
     ),
-    "results_header": "🔍 <b>Wyniki wyszukiwania</b>\n🏙 {city}, ul. {street}{building}\n📊 Znaleziono: {total} ogłoszeń (str. {page}/{total_pages})",
+    "results_header": "🔍 <b>Wyniki wyszukiwania</b>\n🏙 {city}, {street}{building}\n📊 Znaleziono: {total} ogłoszeń (str. {page}/{total_pages})",
     "results_loading_analytics": "Ładuję analitykę…",
     "results_analytics_error": "❌ Błąd ładowania danych: {error}",
     "results_analytics_no_data": "📊 Za mało danych do analityki.",
