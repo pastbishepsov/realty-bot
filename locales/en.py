@@ -88,6 +88,10 @@ STRINGS = {
     "street_label": "st.",
 
     # ── Analytics ─────────────────────────────────────────────────
+    "analytics_prompt": (
+        "📊 <b>Street analytics</b>\n\n"
+        "Run a search by city and street first, then press the «Street analytics» button in the results."
+    ),
     "analytics_title": "📊 <b>Street analytics</b>",
     "analytics_key_metrics": "📋 <b>Key metrics:</b>",
     "analytics_count": "Listings on street",
@@ -123,6 +127,10 @@ STRINGS = {
     "offer_hot": "🔥 Hot deal (multiple price drops)",
     "offer_price_drops": "Price drops",
     "offer_of": "of",
+
+    # ── /cancel command ───────────────────────────────────────────
+    "cancel_done":    "✅ Action cancelled. Returning to main menu.",
+    "cancel_nothing": "Nothing to cancel. Here's the main menu:",
 
     # ── /language command ─────────────────────────────────────────
     "lang_current": "🌐 Current language: <b>🇬🇧 English</b>\n\nSelect a new language:",

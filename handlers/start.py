@@ -98,6 +98,21 @@ async def cb_set_language(callback: CallbackQuery, state: FSMContext) -> None:
     )
 
 
+# ─── /cancel — выход из любого FSM-состояния ─────────────────────────────────
+
+@router.message(Command("cancel"))
+async def cmd_cancel(message: Message, state: FSMContext) -> None:
+    current_state = await state.get_state()
+    await state.clear()
+    user = await get_user(message.from_user.id)
+    lang = _lang(user)
+    is_realtor = user and user.get("role") == "realtor"
+    if current_state is None:
+        await message.answer(t("cancel_nothing", lang), reply_markup=main_menu_keyboard(lang, is_realtor=is_realtor))
+    else:
+        await message.answer(t("cancel_done", lang), reply_markup=main_menu_keyboard(lang, is_realtor=is_realtor))
+
+
 # ─── /language — смена языка ──────────────────────────────────────────────────
 
 @router.message(Command("language"))

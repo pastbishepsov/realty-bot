@@ -30,12 +30,19 @@ def _lang(user: dict | None) -> str:
 
 
 async def _get_offers(city_slug: str) -> list[dict]:
-    cached = await get_cached_listings(city_slug)
-    if cached is not None:
-        return cached
+    try:
+        cached = await get_cached_listings(city_slug)
+        if cached is not None:
+            return cached
+    except Exception as e:
+        logger.warning("Cache read failed for city=%s, will fetch fresh: %s", city_slug, e)
+
     offers = await fetch_all_city_offers(city_slug)
     if offers:
-        await save_listings(city_slug, offers)
+        try:
+            await save_listings(city_slug, offers)
+        except Exception as e:
+            logger.warning("Cache save failed for city=%s: %s", city_slug, e)
     return offers
 
 
@@ -56,7 +63,8 @@ async def show_results(
 
     try:
         all_offers = await _get_offers(city_slug)
-    except RuntimeError as e:
+    except Exception as e:
+        logger.error("Failed to get offers for city=%s: %s", city_slug, e)
         error_text = t("results_error", lang, error=str(e))
         kb = back_to_menu_keyboard(lang)
         if message:
@@ -125,6 +133,21 @@ async def show_results(
         )
 
 
+@router.callback_query(F.data == "action:analytics")
+async def cb_analytics_menu(callback: CallbackQuery) -> None:
+    """Handler for 'Analytics' button in main menu (realtor only).
+    Prompts the realtor to start a search first so that street analytics can be shown.
+    """
+    user = await get_user(callback.from_user.id)
+    lang = _lang(user)
+    await callback.answer()
+    await callback.message.edit_text(
+        t("analytics_prompt", lang),
+        reply_markup=back_to_menu_keyboard(lang),
+        parse_mode="HTML",
+    )
+
+
 @router.callback_query(F.data.startswith("results:"))
 async def cb_results_page(callback: CallbackQuery) -> None:
     parts = callback.data.split(":", 4)
@@ -161,7 +184,8 @@ async def cb_street_analytics(callback: CallbackQuery) -> None:
 
     try:
         all_offers = await _get_offers(city_slug)
-    except RuntimeError as e:
+    except Exception as e:
+        logger.error("Failed to get offers for analytics city=%s: %s", city_slug, e)
         await callback.message.answer(t("results_analytics_error", lang, error=str(e)))
         return
 

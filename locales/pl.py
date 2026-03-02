@@ -88,6 +88,10 @@ STRINGS = {
     "street_label": "ul.",
 
     # ── Analityka ─────────────────────────────────────────────────
+    "analytics_prompt": (
+        "📊 <b>Analityka ulicy</b>\n\n"
+        "Najpierw wykonaj wyszukiwanie według miasta i ulicy, a następnie naciśnij przycisk «Analityka ulicy» w wynikach."
+    ),
     "analytics_title": "📊 <b>Analityka ulicy</b>",
     "analytics_key_metrics": "📋 <b>Kluczowe wskaźniki:</b>",
     "analytics_count": "Ogłoszenia na ulicy",
@@ -123,6 +127,10 @@ STRINGS = {
     "offer_hot": "🔥 Gorąca oferta (kilka obniżek z rzędu)",
     "offer_price_drops": "Obniżek ceny",
     "offer_of": "z",
+
+    # ── Komenda /cancel ───────────────────────────────────────────
+    "cancel_done":    "✅ Działanie anulowane. Wracam do menu głównego.",
+    "cancel_nothing": "Nie ma aktywnego działania. Oto menu główne:",
 
     # ── Komenda /language ─────────────────────────────────────────
     "lang_current": "🌐 Aktualny język: <b>🇵🇱 Polski</b>\n\nWybierz nowy język:",

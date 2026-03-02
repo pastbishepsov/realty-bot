@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import aiosqlite
@@ -146,8 +146,8 @@ async def get_cached_listings(city: str) -> Optional[list[dict]]:
         if meta is None:
             return None
 
-        last_updated = datetime.fromisoformat(meta["last_updated"])
-        if datetime.utcnow() - last_updated > timedelta(hours=config.CACHE_TTL_HOURS):
+        last_updated = datetime.fromisoformat(meta["last_updated"]).replace(tzinfo=None)
+        if datetime.now(timezone.utc).replace(tzinfo=None) - last_updated > timedelta(hours=config.CACHE_TTL_HOURS):
             logger.info("Cache expired for city=%s", city)
             return None
 
